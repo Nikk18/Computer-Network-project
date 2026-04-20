@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAN Security Breach Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root {
+    --bg: #0a0e0d;
+    --bg2: #111916;
+    --card: #151d19;
+    --border: #1e2e27;
+    --fg: #d4e8dc;
+    --muted: #5a7a68;
+    --accent: #00ff88;
+    --danger: #ff3b3b;
+    --warning: #ffaa00;
+    --info: #00ccff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Inter',sans-serif;
+    background:var(--bg);
+    color:var(--fg);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  body::after {
+    content:'';position:fixed;inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,136,0.012) 2px,rgba(0,255,136,0.012) 4px);
+    pointer-events:none;z-index:9999;
+  }
+  header {
+    padding:16px 24px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--bg2);position:relative;
+  }
+  header::after {
+    content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.4;
+  }
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{
+    width:36px;height:36px;border:2px solid var(--danger);border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--danger);font-size:16px;animation:pulseBorder 2s ease-in-out infinite;
+  }
+  @keyframes pulseBorder{
+    0%,100%{border-color:var(--danger);box-shadow:none}
+    50%{border-color:var(--warning);box-shadow:0 0 10px rgba(255,170,0,0.3)}
+  }
+  .logo-text{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--danger);letter-spacing:2px;text-transform:uppercase;}
+  .status-badge{
+    font-family:'Share Tech Mono',monospace;font-size:11px;padding:5px 12px;
+    border-radius:4px;border:1px solid var(--muted);color:var(--muted);transition:all 0.3s;
+  }
+  .status-badge.active{border-color:var(--danger);color:var(--danger);animation:blink 1s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+  main{display:grid;grid-template-columns:1fr 340px;height:calc(100vh - 65px);}
+  .canvas-area{position:relative;border-right:1px solid var(--border);overflow:hidden;background:var(--bg);}
+  canvas#network{width:100%;height:100%;display:block;}
+  .canvas-overlay{
+    position:absolute;top:16px;left:16px;
+    font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);line-height:1.9;
+  }
+  .canvas-overlay .hl{color:var(--accent);}
+  .canvas-overlay .dg{color:var(--danger);}
+  .step-display{
+    position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+    font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--accent);
+    background:rgba(10,14,13,0.9);border:1px solid var(--border);
+    padding:10px 20px;border-radius:6px;text-align:center;max-width:480px;
+    backdrop-filter:blur(6px);transition:all 0.4s;white-space:nowrap;
+  }
+  .info-panel{display:flex;flex-direction:column;background:var(--bg2);overflow-y:auto;}
+  .panel-section{padding:16px;border-bottom:1px solid var(--border);}
+  .panel-title{
+    font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel-title i{font-size:11px;}
+  .controls{display:flex;gap:6px;}
+  .btn{
+    flex:1;padding:9px 14px;border:1px solid var(--border);background:var(--card);
+    color:var(--fg);font-family:'Share Tech Mono',monospace;font-size:11px;
+    border-radius:4px;cursor:pointer;transition:all 0.2s;
+    display:flex;align-items:center;justify-content:center;gap:5px;
+  }
+  .btn:hover{border-color:var(--accent);background:rgba(0,255,136,0.05);}
+  .btn.primary{border-color:var(--danger);color:var(--danger);}
+  .btn.primary:hover{background:rgba(255,59,59,0.1);box-shadow:0 0 16px rgba(255,59,59,0.15);}
+  .btn:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none;}
+  .progress-track{width:100%;height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--warning),var(--danger));border-radius:2px;transition:width 0.5s;width:0%;}
+  .step-cards{display:flex;flex-direction:column;gap:6px;}
+  .step-card{
+    padding:10px 12px;border:1px solid var(--border);border-radius:5px;
+    background:var(--card);cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;
+  }
+  .step-card::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--muted);transition:all 0.3s;
+  }
+  .step-card.active{border-color:var(--danger);background:rgba(255,59,59,0.04);}
+  .step-card.active::before{background:var(--danger);box-shadow:0 0 8px var(--danger);}
+  .step-card.done::before{background:var(--warning);}
+  .step-card-num{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:3px;}
+  .step-card-title{font-size:12px;font-weight:700;}
+  .step-card-desc{font-size:10px;color:var(--muted);line-height:1.4;margin-top:2px;}
+  .detail-area{flex:1;padding:16px;overflow-y:auto;}
+  .detail-empty{
+    height:100%;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;color:var(--muted);gap:10px;
+  }
+  .detail-empty i{font-size:28px;opacity:0.3;}
+  .detail-block{margin-bottom:14px;}
+  .detail-label{
+    font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px;
+    display:flex;align-items:center;gap:5px;
+  }
+  .detail-label.cause{color:var(--warning);}
+  .detail-label.vuln{color:var(--danger);}
+  .detail-label.impact{color:var(--info);}
+  .detail-text{font-size:12px;line-height:1.7;color:var(--fg);padding-left:16px;border-left:2px solid var(--border);}
+  .tag{
+    display:inline-block;font-family:'Share Tech Mono',monospace;font-size:9px;
+    padding:2px 7px;border-radius:3px;margin:2px;
+  }
+  .tag.high{background:rgba(255,59,59,0.15);color:var(--danger);border:1px solid rgba(255,59,59,0.3);}
+  .tag.medium{background:rgba(255,170,0,0.15);color:var(--warning);border:1px solid rgba(255,170,0,0.3);}
+  .tag.low{background:rgba(0,204,255,0.15);color:var(--info);border:1px solid rgba(0,204,255,0.3);}
+  .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .summary-item{padding:10px;background:var(--card);border:1px solid var(--border);border-radius:5px;text-align:center;}
+  .summary-num{font-family:'Share Tech Mono',monospace;font-size:22px;font-weight:900;color:var(--danger);}
+  .summary-lbl{font-size:9px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:1px;}
+  .toast{
+    position:fixed;top:76px;right:20px;padding:10px 16px;
+    background:var(--card);border:1px solid var(--danger);border-radius:5px;
+    font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--danger);
+    z-index:100;transform:translateX(120%);transition:transform 0.4s cubic-bezier(0.16,1,0.3,1);
+    display:flex;align-items:center;gap:8px;max-width:320px;
+  }
+  .toast.show{transform:translateX(0);}
+  @media(max-width:800px){
+    main{grid-template-columns:1fr;grid-template-rows:45vh 1fr;}
+    .canvas-area{border-right:none;border-bottom:1px solid var(--border);}
+  }
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-icon"><i class="fas fa-shield-halved"></i></div>
+    <div class="logo-text">Breach Simulator v2.4</div>
+  </div>
+  <div class="status-badge" id="statusBadge">STANDBY</div>
+</header>
+<main>
+  <div class="canvas-area">
+    <canvas id="network"></canvas>
+    <div class="canvas-overlay" id="overlay">
+      <div><span class="hl">TOPOLOGY:</span> ACME Corp LAN</div>
+      <div><span class="hl">NODES:</span> 6 active</div>
+      <div><span class="hl">STATUS:</span> <span id="netStatus">Secured</span></div>
+    </div>
+    <div class="step-display" id="stepDisplay">Press "Launch Breach" to begin simulation</div>
+  </div>
+  <aside class="info-panel">
+    <div class="panel-section">
+      <div class="panel-title"><i class="fas fa-gamepad"></i> Simulation Control</div>
+      <div class="controls">
+        <button class="btn primary" id="btnStart" onclick="startSim()"><i class="fas fa-play"></i> Launch Breach</button>
+        <button class="btn" id="btnNext" onclick="nextStep()" disabled><i class="fas fa-forward-step"></i> Next</button>
+        <button class="btn" id="btnReset" onclick="resetSim()"><i class="fas fa-rotate-left"></i></button>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title"><i class="fas fa-list-ol"></i> Breach Timeline</div>
+      <div class="step-cards" id="stepCards"></div>
+    </div>
+    <div class="detail-area" id="detailArea">
+      <div class="detail-empty">
+        <i class="fas fa-lock"></i>
+        <div style="font-size:12px;">Network is secure</div>
+        <div style="font-size:10px;">Start simulation to analyze breach</div>
+      </div>
+    </div>
+    <div class="panel-section" id="summarySection" style="display:none;">
+      <div class="panel-title"><i class="fas fa-chart-bar"></i> Breach Summary</div>
+      <div class="summary-grid">
+        <div class="summary-item"><div class="summary-num">3</div><div class="summary-lbl">Vulnerabilities</div></div>
+        <div class="summary-item"><div class="summary-num">5</div><div class="summary-lbl">Nodes Compromised</div></div>
+        <div class="summary-item"><div class="summary-num">2.4k</div><div class="summary-lbl">Records Exposed</div></div>
+        <div class="summary-item"><div class="summary-num">$47k</div><div class="summary-lbl">Est. Damage</div></div>
+      </div>
+    </div>
+  </aside>
+</main>
+<div class="toast" id="toast"><i class="fas fa-triangle-exclamation"></i><span id="toastMsg"></span></div>
+
+<script>
+/* ===== BREACH DATA ===== */
+const STEPS = [
+  {
+    title:"Reconnaissance",
+    desc:"Attacker scans the LAN for open ports and live hosts.",
+    display:"Scanning 192.168.1.0/24 ... Nmap -sV",
+    cause:"Attacker connected a rogue laptop to an unprotected wall jack in the lobby, gaining physical network access.",
+    vuln:"Open switch port with no port security or MAC address filtering. No network access control (NAC) in place.",
+    vulnTags:["high","medium"],
+    impact:"Attacker discovered all 6 active hosts, identified running services (SMB on port 445, RDP on 3389, HTTP on 80), and pinpointed the domain controller at 192.168.1.1.",
+    infectedNodes:[],
+    alertMsg:"Unauthorized ARP scan detected on VLAN 10"
+  },
+  {
+    title:"Default Credential Exploit",
+    desc:"Attacker logs into the network printer using factory password.",
+    display:"Login admin:admin on Printer 192.168.1.10 ... SUCCESS",
+    cause:"IT department never changed the default admin password (admin/admin) when deploying the network printer 8 months ago.",
+    vuln:"Default credentials left unchanged. No automated credential audit or device hardening process.",
+    vulnTags:["high"],
+    impact:"Full admin access to the printer. Attacker used it as a persistent foothold inside the trusted LAN, invisible to perimeter firewall.",
+    infectedNodes:[2],
+    alertMsg:"Unauthorized admin login on HP-Printer-01"
+  },
+  {
+    title:"Lateral Movement via SMB",
+    desc:"Attacker uses SMB to spread to employee workstations.",
+    display:"SMB exploit targeting Workstation-A ... shell obtained",
+    cause:"Employee workstations running Windows 10 with SMBv1 still enabled and missing critical patch KB5012170.",
+    vuln:"Unpatched SMBv1 vulnerability (EternalBlue variant). No network segmentation between printer VLAN and workstation VLAN.",
+    vulnTags:["high","high"],
+    impact:"Two workstations compromised. Attacker harvested cached domain credentials from memory using Mimikatz, gaining valid user accounts.",
+    infectedNodes:[2,3,4],
+    alertMsg:"Suspicious SMB traffic from Printer to Workstation-A"
+  },
+  {
+    title:"Privilege Escalation",
+    desc:"Attacker escalates from regular user to domain admin.",
+    display:"Pass-the-Hash attack on DC ... Domain Admin access obtained",
+    cause:"Domain controller had a weak Service Account password that matched a leaked credential from a previous phishing attack.",
+    vuln:"Weak service account password, no privileged access management (PAM), password reuse across accounts.",
+    vulnTags:["high","medium"],
+    impact:"Full Domain Admin privileges. Attacker now controls the entire Active Directory — can create accounts, modify policies, access any machine.",
+    infectedNodes:[2,3,4,0],
+    alertMsg:"Privilege escalation detected on DC01"
+  },
+  {
+    title:"Data Exfiltration",
+    desc:"Sensitive data is stolen and sent to an external server.",
+    display:"Exfiltrating HR database ... 2,417 records sent to 45.xx.xx.xx",
+    cause:"No Data Loss Prevention (DLP) tools configured. Outbound firewall rules were overly permissive, allowing all outbound HTTPS traffic.",
+    vuln:"No DLP, no egress filtering, no anomaly detection on outbound data transfers.",
+    vulnTags:["high","medium","low"],
+    impact:"2,417 employee records (names, SSNs, salaries) exfiltrated. Financial records from the file server also stolen. Estimated damage: $47,000 in breach costs, fines, and remediation.",
+    infectedNodes:[0,1,2,3,4],
+    alertMsg:"Large outbound data transfer detected to external IP"
+  }
+];
+
+/* ===== NETWORK NODES ===== */
+const NODE_DEFS = [
+  { label:"Domain Controller", ip:"192.168.1.1", icon:"\uf233", x:0.5, y:0.18, color:"#00ccff" },
+  { label:"File Server",       ip:"192.168.1.2", icon:"\uf0a0", x:0.28, y:0.38, color:"#00ccff" },
+  { label:"Printer",           ip:"192.168.1.10",icon:"\uf02f", x:0.72, y:0.38, color:"#5a7a68" },
+  { label:"Workstation-A",     ip:"192.168.1.50",icon:"\uf108", x:0.2, y:0.65, color:"#5a7a68" },
+  { label:"Workstation-B",     ip:"192.168.1.51",icon:"\uf108", x:0.5, y:0.72, color:"#5a7a68" },
+  { label:"Firewall",          ip:"192.168.1.254",icon:"\uf132", x:0.8, y:0.65, color:"#ffaa00" }
+];
+
+/* ===== STATE ===== */
+let currentStep = -1;
+let nodes = [];
+let packets = [];
+let running = false;
+let infectedSet = new Set();
+let animFrame = 0;
+
+/* ===== CANVAS SETUP ===== */
+const canvas = document.getElementById("network");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width = r.width * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  // recompute node pixel positions
+  const w = r.width, h = r.height;
+  nodes = NODE_DEFS.map((d,i) => ({
+    ...d,
+    px: d.x * w,
+    py: d.y * h,
+    infected: false,
+    pulsePhase: Math.random() * Math.PI * 2
+  }));
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ===== CONNECTIONS (which nodes are linked) ===== */
+const LINKS = [[0,1],[0,2],[0,3],[0,4],[1,3],[2,4],[4,5],[0,5]];
+
+/* ===== DRAWING ===== */
+function drawNetwork() {
+  const w = canvas.width / devicePixelRatio;
+  const h = canvas.height / devicePixelRatio;
+  ctx.clearRect(0, 0, w, h);
+
+  // background grid
+  ctx.strokeStyle = "rgba(0,255,136,0.03)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+  for (let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+  animFrame++;
+
+  // draw links
+  LINKS.forEach(([a,b]) => {
+    const na = nodes[a], nb = nodes[b];
+    const infA = na.infected, infB = nb.infected;
+    ctx.beginPath();
+    ctx.moveTo(na.px, na.py);
+    ctx.lineTo(nb.px, nb.py);
+    if (infA && infB) {
+      ctx.strokeStyle = "rgba(255,59,59,0.4)";
+      ctx.lineWidth = 2;
+    } else if (infA || infB) {
+      ctx.strokeStyle = "rgba(255,170,0,0.25)";
+      ctx.lineWidth = 1.5;
+    } else {
+      ctx.strokeStyle = "rgba(0,255,136,0.08)";
+      ctx.lineWidth = 1;
+    }
+    ctx.stroke();
+  });
+
+  // draw packets
+  packets = packets.filter(p => {
+    p.t += p.speed;
+    if (p.t >= 1) return false;
+    const na = nodes[p.from], nb = nodes[p.to];
+    const x = na.px + (nb.px - na.px) * p.t;
+    const y = na.py + (nb.py - na.py) * p.t;
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    return true;
+  });
+
+  // draw nodes
+  nodes.forEach((n, i) => {
+    const pulse = Math.sin(animFrame * 0.04 + n.pulsePhase) * 0.3 + 0.7;
+
+    // glow
+    if (n.infected) {
+      ctx.beginPath();
+      ctx.arc(n.px, n.py, 36 + pulse * 6, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,59,59,0.08)";
+      ctx.fill();
+    }
+
+    // circle bg
+    ctx.beginPath();
+    ctx.arc(n.px, n.py, 28, 0, Math.PI * 2);
+    ctx.fillStyle = n.infected ? "rgba(255,59,59,0.12)" : "rgba(21,29,25,0.9)";
+    ctx.fill();
+    ctx.strokeStyle = n.infected ? "rgba(255,59,59,0.7)" : "rgba(0,255,136,0.2)";
+    ctx.lineWidth = n.infected ? 2 : 1;
+    ctx.stroke();
+
+    // icon (font awesome unicode)
+    ctx.font = "900 16px 'Font Awesome 6 Free'";
+    ctx.fillStyle = n.infected ? "#ff3b3b" : n.color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(n.icon, n.px, n.py);
+
+    // label
+    ctx.font = "500 10px 'Inter',sans-serif";
+    ctx.fillStyle = n.infected ? "#ff6b6b" : "#8aaa98";
+    ctx.fillText(n.label, n.px, n.py + 42);
+
+    // ip
+    ctx.font = "10px 'Share Tech Mono',monospace";
+    ctx.fillStyle = "rgba(90,122,104,0.6)";
+    ctx.fillText(n.ip, n.px, n.py + 55);
+
+    // infected badge
+    if (n.infected) {
+      ctx.font = "900 8px 'Font Awesome 6 Free'";
+      ctx.fillStyle = "#ff3b3b";
+      ctx.fillText("\uf071", n.px + 20, n.py - 18);
+    }
+  });
+
+  requestAnimationFrame(drawNetwork);
+}
+drawNetwork();
+
+/* ===== UI FUNCTIONS ===== */
+function buildStepCards() {
+  const container = document.getElementById("stepCards");
+  container.innerHTML = "";
+  STEPS.forEach((s, i) => {
+    const div = document.createElement("div");
+    div.className = "step-card" + (i === currentStep ? " active" : "") + (i < currentStep ? " done" : "");
+    div.innerHTML = `
+      <div class="step-card-num">STEP ${i+1} / ${STEPS.length}</div>
+      <div class="step-card-title">${s.title}</div>
+      <div class="step-card-desc">${s.desc}</div>
+    `;
+    div.onclick = () => { if (i <= currentStep) showDetail(i); };
+    container.appendChild(div);
+  });
+}
+
+function showDetail(i) {
+  const s = STEPS[i];
+  const tags = s.vulnTags.map(t => `<span class="tag ${t}">${t.toUpperCase()}</span>`).join("");
+  document.getElementById("detailArea").innerHTML = `
+    <div class="detail-block">
+      <div class="detail-label cause"><i class="fas fa-magnifying-glass"></i> Cause of Breach</div>
+      <div class="detail-text">${s.cause}</div>
+    </div>
+    <div class="detail-block">
+      <div class="detail-label vuln"><i class="fas fa-bug"></i> Vulnerabilities Exploited</div>
+      <div class="detail-text">${s.vuln}</div>
+      <div style="margin-top:8px;padding-left:18px;">${tags}</div>
+    </div>
+    <div class="detail-block">
+      <div class="detail-label impact"><i class="fas fa-explosion"></i> Impact on Network</div>
+      <div class="detail-text">${s.impact}</div>
+    </div>
+  `;
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  document.getElementById("toastMsg").textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+function spawnPackets(fromIdx, toIdx, color, count) {
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      packets.push({ from: fromIdx, to: toIdx, t: 0, speed: 0.008 + Math.random()*0.006, color });
+    }, i * 300);
+  }
+}
+
+function applyStep(idx) {
+  const s = STEPS[idx];
+  // infect nodes
+  s.infectedNodes.forEach(ni => {
+    if (!infectedSet.has(ni)) {
+      infectedSet.add(ni);
+      nodes[ni].infected = true;
+    }
+  });
+  // spawn visual packets
+  const prevInfected = idx > 0 ? STEPS[idx-1].infectedNodes : [];
+  const newInfected = s.infectedNodes.filter(n => !prevInfected.includes(n));
+  newInfected.forEach(ni => {
+    // find a source that was already infected
+    const src = prevInfected.length > 0 ? prevInfected[0] : ni;
+    spawnPackets(src, ni, "#ff3b3b", 4);
+  });
+  // also some scan packets for step 0
+  if (idx === 0) {
+    for (let i = 0; i < 6; i++) {
+      spawnPackets(5, i, "#ffaa00", 2);
+    }
+  }
+  // exfiltration packets for last step
+  if (idx === 4) {
+    spawnPackets(1, 5, "#ff3b3b", 6);
+  }
+
+  // update canvas overlay
+  document.getElementById("netStatus").textContent = infectedSet.size > 0 ? `${infectedSet.size} nodes compromised` : "Secured";
+  document.getElementById("netStatus").className = infectedSet.size > 0 ? "dg" : "hl";
+
+  // update UI
+  document.getElementById("stepDisplay").textContent = `[Step ${idx+1}] ${s.display}`;
+  document.getElementById("progressFill").style.width = ((idx+1)/STEPS.length*100) + "%";
+  buildStepCards();
+  showDetail(idx);
+  showToast(s.alertMsg);
+}
+
+/* ===== CONTROLS ===== */
+function startSim() {
+  if (running) return;
+  running = true;
+  currentStep = -1;
+  document.getElementById("statusBadge").textContent = "BREACH ACTIVE";
+  document.getElementById("statusBadge").className = "status-badge active";
+  document.getElementById("btnStart").disabled = true;
+  document.getElementById("btnNext").disabled = false;
+  nextStep();
+}
+
+function nextStep() {
+  if (currentStep >= STEPS.length - 1) {
+    // simulation complete
+    document.getElementById("btnNext").disabled = true;
+    document.getElementById("stepDisplay").textContent = "Breach simulation complete. Review findings above.";
+    document.getElementById("summarySection").style.display = "block";
+    showToast("SIMULATION COMPLETE — Full breach achieved");
+    return;
+  }
+  currentStep++;
+  applyStep(currentStep);
+}
+
+function resetSim() {
+  running = false;
+  currentStep = -1;
+  infectedSet.clear();
+  packets = [];
+  nodes.forEach(n => n.infected = false);
+  document.getElementById("statusBadge").textContent = "STANDBY";
+  document.getElementById("statusBadge").className = "status-badge";
+  document.getElementById("btnStart").disabled = false;
+  document.getElementById("btnNext").disabled = true;
+  document.getElementById("progressFill").style.width = "0%";
+  document.getElementById("stepDisplay").textContent = 'Press "Launch Breach" to begin simulation';
+  document.getElementById("netStatus").textContent = "Secured";
+  document.getElementById("netStatus").className = "hl";
+  document.getElementById("summarySection").style.display = "none";
+  document.getElementById("detailArea").innerHTML = `
+    <div class="detail-empty">
+      <i class="fas fa-lock"></i>
+      <div style="font-size:12px;">Network is secure</div>
+      <div style="font-size:10px;">Start simulation to analyze breach</div>
+    </div>`;
+  buildStepCards();
+}
+
+/* ===== INIT ===== */
+buildStepCards();
+</script>
+</body>
+</html>
